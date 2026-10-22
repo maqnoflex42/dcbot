@@ -1,1 +1,28 @@
-The requested file reference is not currently visible. Use files.search or files.list to rediscover the file, then retry with a returned ref_id or file_id.
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maqnobot Giriş</title>
+<style>
+body{font-family:Arial,sans-serif;background:#111827;color:#e5e7eb;display:grid;place-items:center;height:100vh;margin:0}
+.card{background:#1f2937;padding:28px;border-radius:18px;width:min(420px,90vw);box-shadow:0 20px 60px #0008}
+input,button{width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #374151;margin-top:10px}
+input{background:#111827;color:#fff}button{background:#5865F2;color:white;border:0;font-weight:700;cursor:pointer}
+.err{background:#7f1d1d;padding:10px;border-radius:8px}
+small{color:#9ca3af}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎛️ Maqnobot</h1>
+  <p>Özel kontrol paneli</p>
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <form method="post" action="/login">
+    <input type="password" name="password" placeholder="Panel şifresi" autofocus required>
+    <button type="submit">Giriş yap</button>
+  </form>
+  <p><small>Bu paneli internete açacaksan HTTPS + ek erişim koruması kullan.</small></p>
+</div>
+</body>
+</html>
