@@ -1,1 +1,274 @@
-The requested file reference is not currently visible. Use files.search or files.list to rediscover the file, then retry with a returned ref_id or file_id.
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maqnobot Panel</title>
+<style>
+:root{--bg:#0b1020;--card:#151b2d;--line:#28324a;--text:#e8ecf6;--muted:#9aa5bf;--accent:#5865F2;--danger:#dc2626;--ok:#16a34a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif}
+header{position:sticky;top:0;z-index:2;background:#0b1020eF;border-bottom:1px solid var(--line);padding:14px 22px;display:flex;justify-content:space-between;align-items:center}
+main{padding:20px;display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.span12{grid-column:span 12}.span8{grid-column:span 8}.span6{grid-column:span 6}.span4{grid-column:span 4}
+@media(max-width:950px){.span8,.span6,.span4{grid-column:span 12}}
+h1,h2,h3{margin-top:0}.muted{color:var(--muted)}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select,button,textarea{background:#0f1527;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px}
+input,select,textarea{min-width:160px}button{cursor:pointer}button:hover{border-color:#64748b}
+.primary{background:var(--accent);border-color:var(--accent)}.danger{background:var(--danger);border-color:var(--danger)}.ok{background:var(--ok);border-color:var(--ok)}
+.queue{max-height:360px;overflow:auto}.qitem{display:flex;justify-content:space-between;gap:8px;padding:9px;border-bottom:1px solid var(--line)}
+.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#202a44;color:#c7d2fe;font-size:12px}
+#toast{position:fixed;right:18px;bottom:18px;max-width:420px;padding:12px 16px;background:#111827;border:1px solid var(--line);border-radius:12px;display:none;z-index:10}
+.now{display:flex;gap:14px;align-items:center}.now img{width:86px;height:86px;object-fit:cover;border-radius:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:650px){.grid2{grid-template-columns:1fr}}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.control{margin-bottom:10px}.log{font-size:13px;padding:8px;border-bottom:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <div><strong>🎛️ Maqnobot</strong> <span id="guildName" class="muted"></span></div>
+  <form method="post" action="/logout"><button>Çıkış</button></form>
+</header>
+
+<main>
+  <section class="card span8">
+    <h2>🎵 Müzik</h2>
+    <div id="nowPlaying" class="now muted">Şu an çalan parça yok.</div>
+    <hr style="border-color:var(--line)">
+    <div class="row">
+      <input id="query" style="flex:1" placeholder="Şarkı adı / YouTube linki / playlist linki">
+      <select id="voiceChannel"></select>
+      <select id="textChannel"></select>
+      <button class="primary" onclick="play()">▶ Ekle / Çal</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button onclick="music('pause')">⏸ Pause</button>
+      <button onclick="music('resume')">▶ Resume</button>
+      <button onclick="music('skip')">⏭ Skip</button>
+      <button onclick="music('replay')">⏮ Replay</button>
+      <button class="danger" onclick="music('stop')">⏹ Stop</button>
+      <button onclick="music('shuffle')">🔀 Shuffle</button>
+      <button onclick="music('clear')">🧹 Queue temizle</button>
+      <button onclick="music('leave')">🚪 Çık</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label>Loop
+        <select id="loopMode" onchange="music('loop',this.value)">
+          <option value="off">Kapalı</option>
+          <option value="track">Şarkı</option>
+          <option value="queue">Queue</option>
+        </select>
+      </label>
+      <label>Ses
+        <input id="volume" type="range" min="0" max="200" value="60" oninput="volText.textContent=this.value+'%'">
+        <span id="volText">60%</span>
+        <button onclick="music('volume',volume.value)">Uygula</button>
+      </label>
+      <label>Seek
+        <input id="seek" placeholder="1:30">
+        <button onclick="music('seek',seek.value)">Git</button>
+      </label>
+    </div>
+  </section>
+
+  <section class="card span4">
+    <h2>📜 Queue</h2>
+    <div id="queue" class="queue muted">Boş</div>
+    <div class="row" style="margin-top:10px">
+      <input id="oldIndex" type="number" placeholder="Eski sıra">
+      <input id="newIndex" type="number" placeholder="Yeni sıra">
+      <button onclick="moveItem()">Taşı</button>
+    </div>
+  </section>
+
+  <section class="card span6">
+    <h2>🛡 Üye Moderasyonu</h2>
+    <div class="control"><label>Üye</label><select id="member"></select></div>
+    <div class="grid2">
+      <div class="control"><label>Sebep</label><input id="reason" value="Web panel"></div>
+      <div class="control"><label>Timeout (dakika)</label><input id="minutes" type="number" value="10"></div>
+    </div>
+    <div class="row">
+      <button onclick="modMember('timeout')">🔇 Timeout</button>
+      <button onclick="modMember('untimeout')">🔊 Timeout kaldır</button>
+      <button onclick="warn()">⚠️ Warn</button>
+      <button onclick="clearWarnings()">🧽 Warn temizle</button>
+      <button class="danger" onclick="modMember('kick')">👢 Kick</button>
+      <button class="danger" onclick="modMember('ban')">🔨 Ban</button>
+    </div>
+    <hr style="border-color:var(--line)">
+    <div class="grid2">
+      <div>
+        <label>Nickname</label>
+        <input id="nickname" placeholder="Boş = sıfırla">
+        <button onclick="nicknameAction()">Değiştir</button>
+      </div>
+      <div>
+        <label>Rol</label>
+        <select id="role"></select>
+        <div class="row"><button onclick="roleAction('add')">Rol ver</button><button onclick="roleAction('remove')">Rol al</button></div>
+      </div>
+    </div>
+    <hr style="border-color:var(--line)">
+    <h3>🎙 Voice yönetimi</h3>
+    <div class="row">
+      <button onclick="voiceAction('mute')">Mute</button>
+      <button onclick="voiceAction('unmute')">Unmute</button>
+      <button onclick="voiceAction('deafen')">Deafen</button>
+      <button onclick="voiceAction('undeafen')">Undeafen</button>
+      <button onclick="voiceAction('disconnect')">Kanaldan at</button>
+      <select id="moveVoice"></select>
+      <button onclick="voiceAction('move')">Taşı</button>
+    </div>
+  </section>
+
+  <section class="card span6">
+    <h2>💬 Kanal Moderasyonu</h2>
+    <div class="control"><label>Metin kanalı</label><select id="modTextChannel"></select></div>
+    <div class="row">
+      <button onclick="channelAction('lock')">🔒 Kilitle</button>
+      <button onclick="channelAction('unlock')">🔓 Aç</button>
+      <input id="slowmode" type="number" value="5" placeholder="saniye">
+      <button onclick="channelAction('slowmode')">🐢 Slowmode</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input id="purgeAmount" type="number" value="20">
+      <button class="danger" onclick="purge()">🧹 Mesaj sil</button>
+    </div>
+    <hr style="border-color:var(--line)">
+    <h3>Ban kaldır</h3>
+    <div class="row">
+      <input id="unbanId" placeholder="Discord kullanıcı ID">
+      <button onclick="unban()">Unban</button>
+    </div>
+  </section>
+
+  <section class="card span12">
+    <h2>📋 Moderasyon Logları</h2>
+    <div id="modlog" class="muted">Log yok.</div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+let state=null;
+const $=id=>document.getElementById(id);
+
+function toast(msg, ok=true){
+  const t=$('toast'); t.textContent=msg; t.style.display='block';
+  t.style.borderColor=ok?'#16a34a':'#dc2626';
+  setTimeout(()=>t.style.display='none',3500);
+}
+
+async function post(url, data={}){
+  const fd=new FormData();
+  Object.entries(data).forEach(([k,v])=>{ if(v!==undefined && v!==null) fd.append(k,v); });
+  const r=await fetch(url,{method:'POST',body:fd});
+  const j=await r.json();
+  if(!r.ok) throw new Error(j.error||j.detail||'İşlem başarısız');
+  return j;
+}
+
+function fillSelect(id, items, selected){
+  const el=$(id); const old=el.value;
+  el.innerHTML='';
+  items.forEach(x=>{
+    const o=document.createElement('option');o.value=x.id;o.textContent=x.name;o.selected=String(selected||old)===String(x.id);el.appendChild(o);
+  });
+}
+
+async function refresh(){
+  try{
+    const r=await fetch('/api/state'); const s=await r.json();
+    if(!r.ok) throw new Error(s.error||s.detail);
+    state=s;
+    $('guildName').textContent='— '+s.guild.name+' ('+s.guild.member_count+')';
+    fillSelect('voiceChannel',s.voice_channels);
+    fillSelect('moveVoice',s.voice_channels);
+    fillSelect('textChannel',s.text_channels);
+    fillSelect('modTextChannel',s.text_channels);
+    fillSelect('role',s.roles);
+    fillSelect('member',s.members.filter(x=>!x.bot).map(x=>({id:x.id,name:x.name+' — '+x.username})));
+
+    const m=s.music;
+    $('loopMode').value=m.loop_mode;
+    $('volume').value=m.volume; $('volText').textContent=m.volume+'%';
+
+    if(m.current){
+      $('nowPlaying').innerHTML=(m.current.thumbnail?`<img src="${m.current.thumbnail}">`:'')+
+        `<div><strong>${m.current.title}</strong><br><span class="muted">${m.elapsed_text} / ${m.current.duration_text}</span><br>`+
+        `<span class="pill">${m.paused?'Paused':m.playing?'Playing':'Hazır'}</span> `+
+        `<span class="pill">Loop: ${m.loop_mode}</span></div>`;
+    } else $('nowPlaying').textContent='Şu an çalan parça yok.';
+
+    $('queue').innerHTML=m.queue.length?m.queue.map((q,i)=>`
+      <div class="qitem"><span>${i+1}. ${q.title} <span class="muted">(${q.duration_text})</span></span>
+      <button onclick="music('remove','${i+1}')">Sil</button></div>`).join(''):'<span class="muted">Queue boş.</span>';
+
+    $('modlog').innerHTML=s.modlog.length?s.modlog.map(x=>
+      `<div class="log"><b>${x.action}</b> → ${x.target} <span class="muted">— ${x.reason||''}</span></div>`
+    ).join(''):'<span class="muted">Log yok.</span>';
+  }catch(e){toast(e.message,false)}
+}
+
+async function play(){
+  try{
+    const j=await post('/api/music/play',{
+      query:$('query').value,voice_channel_id:$('voiceChannel').value,text_channel_id:$('textChannel').value
+    }); toast(j.added+' parça eklendi'); $('query').value=''; refresh();
+  }catch(e){toast(e.message,false)}
+}
+async function music(action,value){
+  try{await post('/api/music/'+action,{value});refresh()}catch(e){toast(e.message,false)}
+}
+async function moveItem(){
+  try{await post('/api/music/move-item',{old_index:$('oldIndex').value,new_index:$('newIndex').value});refresh()}
+  catch(e){toast(e.message,false)}
+}
+async function modMember(action){
+  try{
+    await post('/api/mod/'+action,{
+      member_id:$('member').value,minutes:$('minutes').value,reason:$('reason').value
+    });toast('İşlem tamam');refresh();
+  }catch(e){toast(e.message,false)}
+}
+async function warn(){
+  try{const j=await post('/api/mod/warn',{member_id:$('member').value,reason:$('reason').value});toast('Warn sayısı: '+j.count);refresh()}
+  catch(e){toast(e.message,false)}
+}
+async function clearWarnings(){
+  try{await post('/api/mod/clear-warnings',{member_id:$('member').value});toast('Warnlar temizlendi');refresh()}
+  catch(e){toast(e.message,false)}
+}
+async function nicknameAction(){
+  try{await post('/api/mod/nickname',{member_id:$('member').value,nickname:$('nickname').value});toast('Nickname güncellendi');refresh()}
+  catch(e){toast(e.message,false)}
+}
+async function roleAction(action){
+  try{await post('/api/mod/role',{member_id:$('member').value,role_id:$('role').value,action});toast('Rol işlemi tamam');refresh()}
+  catch(e){toast(e.message,false)}
+}
+async function voiceAction(action){
+  try{await post('/api/mod/voice',{member_id:$('member').value,action,channel_id:$('moveVoice').value});toast('Voice işlemi tamam');refresh()}
+  catch(e){toast(e.message,false)}
+}
+async function channelAction(action){
+  try{await post('/api/mod/channel',{channel_id:$('modTextChannel').value,action,seconds:$('slowmode').value});toast('Kanal işlemi tamam');refresh()}
+  catch(e){toast(e.message,false)}
+}
+async function purge(){
+  try{const j=await post('/api/mod/purge',{channel_id:$('modTextChannel').value,amount:$('purgeAmount').value});toast(j.deleted+' mesaj silindi');refresh()}
+  catch(e){toast(e.message,false)}
+}
+async function unban(){
+  try{await post('/api/mod/unban',{user_id:$('unbanId').value,reason:$('reason').value});toast('Ban kaldırıldı');refresh()}
+  catch(e){toast(e.message,false)}
+}
+
+refresh();
+setInterval(refresh,2500);
+</script>
+</body>
+</html>
